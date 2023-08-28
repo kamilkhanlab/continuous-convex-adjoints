@@ -79,14 +79,15 @@ The [`/examples/`](/examples/) folder contains our code for four numerical examp
 
 ### [Example1](examples/example1)
 This C++ implementation calculates subgradients for an objective function in a lower-bounding problem when the adjoint system is constructed using forward-mode subgradient AD. This example is adapted from [Scott and Barton (2013)], producing the plot:
-![](results/plot_x_p_0_15.png)
+![](results/plot_x2_p1_2_0.png)
 
 ### [Example2](examples/example2)
 This C++ implementation calculates subgradients for an objective function in a lower-bounding problem. The computation is performed when the adjoint system is constructed using reverse-mode subgradient AD, producing the plot:
-![](results/plot_x2_p1_2_0.png)
+![](results/plot_x_p_0_15.png)
 
 ### [Example3](examples/example3)
-This implementation describes both the forward subgradient evaluation system (Song and Khan, 2023) and the adjoint subgradient system for the same lower-bounding problem, allowing for comparison in terms of CPU time. In constructing the adjoint subgradient system, we separately apply both forward-mode subgradient AD (Mitsos et al., 2009) and reverse-mode subgradient AD (Beckers et al., 2012).
+This implementation describes both the forward subgradient evaluation system (Song and Khan, 2023) and the adjoint subgradient system for the same lower-bounding problem, allowing for comparison in terms of CPU time. In constructing the adjoint subgradient system, we separately apply both forward-mode subgradient AD (Mitsos et al., 2009) and reverse-mode subgradient AD (Beckers et al., 2012). The resulting plot is:
+![](results/plot_x2_p7_2_0.png)
 
 ### [Example4](examples/example4)
 To compare how the CPU time for evaluating the subgradient of the objective function scales with the number of parameters, this implementation calculates subgradients using both the adjoint subgradient evaluation system and the forward subgradient evaluation system (Song and Khan, 2023).
