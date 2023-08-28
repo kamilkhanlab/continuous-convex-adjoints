@@ -63,10 +63,9 @@ Then, the subgradient $\tilde{s}$ of $J^{\mathrm{cv}}$ at $\tilde{\mathbf{p}}$ i
 
 $$ 
 \begin{align*} 
-\tilde{\mathbf{s}} = [\mathbf{S}^{\mathrm{C}}_0]^\mathrm{T}\boldsymbol{\lambda}(t_0) + \boldsymbol{\rho} + \int_{t_0}^{t_f}[\Theta_{\mathrm{B}}(t,\tilde{\mathbf{p}})]^{\mathrm{T}} \boldsymbol{\lambda}(t) dt \in \partial J(\tilde{\mathbf{p}}). 
+\tilde{\mathbf{s}} = [\mathbf{S}^{\mathrm{C}}_0]^\mathrm{T}\boldsymbol{\lambda}(t_0) + \boldsymbol{\rho} + \int\_{t_0}^{t_f} [\Theta\_{\mathrm{B}}(t,\tilde{\mathbf{p}})]^{\mathrm{T}} \boldsymbol{\lambda}(t) dt \in \partial J(\tilde{\mathbf{p}}). 
 \end{align*} 
 $$
-
 
 The final quadrature term can be integrated simultaneously with the adjoint ODE system. To construct this adjoint subgradient evaluation system, the subgradient propagation coefficients $(\Theta_A, \Theta_B)$ must be constructed. These may be constructed by either the forward-mode automatic differentiation (AD) procedure for subgradient computation [(Mitsos et al., 2009)](https://epubs.siam.org/doi/abs/10.1137/080717341?casa_token=X6tjOHIMtuUAAAAA:YEYWjPwxVy89IxHdTtORz7-ezvmI9JVrPxtbrFeCZZI-i_HJWi2XTd3WS3boCcv_IWQULb-HjNT7Mg), or the corresponding reverse-mode AD [(Beckers et al., 2012)](https://link.springer.com/chapter/10.1007/978-3-642-30023-3_10).
 
