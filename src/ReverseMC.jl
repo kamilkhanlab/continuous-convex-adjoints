@@ -1,0 +1,837 @@
+#=
+module ReverseMC
+================
+A quick implementation of adjoint mode computation of subgradients for McCormick relaxations, which invloves in applying reverse mode of automatic differentiation (AD) in subgradient evaluation. The reverse MC mode traverses a computational graph constructed by CompGraphs.jl, then generates the c++ code by stepping backward through the graph.  
+Roughly follows the method description in Beckers, M., Mosenkis, V., & Naumann, U. (2012). Adjoint mode computation of subgradients for McCormick relaxations. In Recent advances in algorithmic differentiation (pp. 103-113). Springer, Berlin, Heidelberg.
+Requires CompGraphs.jl in the same folder.
+Written by Yulan Zhang on August 05, 2022.
+Last modified by Yulan Zhang on May 12, 2023
+=#
+
+module ReverseMC
+
+include("CompGraphs.jl")
+
+using .CompGraphs, Printf
+
+export record_tape, generate_revMC_c_code!
+
+# struct for holding node-specific information in computational graph
+mutable struct NodeData
+    nothing
+end
+
+# default value of NodeData
+NodeData() = NodeData(nothing)
+
+# called when printing NodeData
+Base.show(io::IO, n::NodeData) = @printf(io, "val: % .3e,   bar: % .3e", n.val, n.bar)
+
+# struct for holding information not specific to an individual node
+mutable struct TapeData
+    x::Vector{Float64}     # input value to graphed function
+    p::Vector{Float64}     # parameter value to graphed function
+    y::Vector{Float64}     # output value of graphed function
+    xBar::Vector{Float64}  # output of reverse AD mode
+    pBar::Vector{Float64}  # output of reverse AD mode
+    yBar::Vector{Float64}  # input to reverse AD mode
+    iX::Int                # next input component to be processed
+    iP::Int                # next input component to be processed
+    iY::Int                # next output component to be processed
+    areBarsZero::Bool      # used to check if reverse AD mode is initialized
+end
+
+# default value of TapeData
+TapeData() = TapeData(
+    Float64[],             # x
+    Float64[],             # p
+    Float64[],             # y
+    Float64[],             # xBar
+    Float64[],             # pBar
+    Float64[],             # yBar
+    1,                     # iX
+    1,                     # iP
+    1,                     # iY
+    false                  # areBarsZero
+)
+
+# create a CompGraph "tape" of a provided funcntion for reverse AD    
+function record_tape(
+    f::Function,
+    domainDim::Int,
+    parmDim::Int,
+    rangeDim::Int,
+    TotalNoOfFunc::Int
+)  
+    tapeList = CompGraphList{TapeData,NodeData}()
+    for i = 1:TotalNoOfFunc
+        tape = CompGraph{TapeData, NodeData}(domainDim, parmDim, rangeDim, i)
+        load_function!(f, tape, NodeData())
+        tape.data.areBarsZero = false
+        push!(tapeList.GraphList, tape)
+    end
+    return tapeList
+end
+
+# generate C++ code for performing the reverse AD mode on the graphed function
+function generate_revMC_c_code!(
+    tapeList::CompGraphList{TapeData, NodeData},
+    fileName::AbstractString = "ReverseMC",
+    headerFile::AbstractString = "ReverseMC"
+)
+    # initial checkAbstractString = funcName * "RevMC"
+    (is_function_loaded(tapeList)) ||
+        throw(DomainError("tape: hasn't been loaded with a function"))
+
+    # generate C++ script
+    open(fileName * ".cpp", "w") do file
+        ########################## print all hearder files### ###########################
+        print(file, """
+            #include "reverseMC.hpp"              /* access to Reverse mode of subgradient evaluations */
+            """)
+
+        ########################## print fRevAD_dfdx function ###########################
+        println(file, """
+            /*
+            * Reverse mode of automatic differentiation
+            * Computations of df/dx required by evalutaing fB
+            */
+            N_Vector fRevAD_dfdx(MC xMC[NX], MC pMC[NP], double sub[NRev * NRev], int n, int k)
+            {""")
+        
+        println(file, "    SUNContext sunctx;")
+        println(file, "    SUNContext_Create(NULL, &sunctx);")
+        println(file, "    RevMC vBar[L];") 
+        println(file, "    MC v[L];") 
+
+        len = Array{Int}(undef, 0)
+        for (j,tape) in enumerate(tapeList.GraphList)
+            push!(len,length(tape.nodeList)-tape.rangeDim)
+        end
+        
+        println(file,"""
+            N_Vector adcvcc = N_VNew_Serial(NRev * NX, sunctx);
+            for (int j = 0; j < NRev * NX; j++) 
+            {
+                Ith(adcvcc, j + 1) = 0;
+            }
+        """)
+        println(file,"""
+            double** vsub = new double*[L];
+            for(int i = 0; i < L; i++) {
+                vsub[i] = new double[NRev * 2];
+            }
+        """)
+        println(file,"""
+            
+            /*
+            *-----------------------------------------------------------------
+            * The following code was automatically generated by ReverseMC.jl.
+            *-----------------------------------------------------------------
+            */ 
+                    
+            switch (n)
+            { 
+        """)
+        for (j, tape) in enumerate(tapeList.GraphList)
+            tape.data.iX = 1
+            tape.data.iP = 1
+            tape.data.iY = 1  
+            println(file, "    case " *string(j-1)* ":")
+            for (i, node) in enumerate(tape.nodeList)
+                fwd_c_dfdx_codeGen_step!(file, tape, i, j, node)
+            end
+            println(file, """
+                    //-----------------------------------------------------------------------
+                    // Evaluate subgradients with reverse sweep through computational graph
+            """)
+            println(file, "        for (int i = 0; i < L" * string(j)* "; i++)")
+            println(file, "        {")
+            println(file, "            //vBar[i] = RevMC(v[i]);")
+            println(file, "            if (i == L" * string(j)* " - 1)")
+            println(file, """
+                        {
+                            double Sub[NRev] = {1,0,0,1};
+                            vBar[i].subbar(NRev/2, &Sub[0], &Sub[2]);
+                        }
+                        else
+                        {
+                            vBar[i].subbar(NRev/2);
+                        }
+                    }
+            """) 
+            for (i, node) in Iterators.reverse(enumerate(tape.nodeList))
+                rev_c_codeGen_step!(file, tape, i, node)            
+            end
+            println(file, """
+                
+                    break;       
+            """)            
+        end
+        println(file,"""
+            }
+            
+            for (int j = 0; j < NX; j++)
+            {
+                for (int i = 0; i < NRev/2; i++)
+                {
+                    Ith(adcvcc, 2 * j + i + 1) = vBar[j].cvsubbar(i);
+                    Ith(adcvcc, 2 * NX + 2 * j + i + 1) = vBar[j].ccsubbar(i);
+                }
+            }
+            
+            for(int i = 0; i < L; i++) {
+                delete[] vsub[i];
+            }
+            delete[] vsub;
+            
+            SUNContext_Free(&sunctx);
+            return adcvcc;
+            
+        }
+        """)
+        
+        ########################## print fRevAD_dfdp function ###########################
+        println(file, """
+            /*
+            * Reverse mode of automatic differentiation
+            * Computations of df/dp required by evalutaing fQB
+            */
+            N_Vector fRevAD_dfdp(MC xMC[NX], MC pMC[NP], double sub[NRev * NRev], int n)
+            {""")
+
+        println(file, "    SUNContext sunctx;")
+        println(file, "    SUNContext_Create(NULL, &sunctx);")
+        println(file, "    RevMC vBar[L];") 
+        println(file, "    MC v[L];") 
+        len = Array{Int}(undef, 0)
+        for (j,tape) in enumerate(tapeList.GraphList)
+            push!(len,length(tape.nodeList)-tape.rangeDim)
+        end
+        
+        println(file,"""
+            N_Vector adcvcc = N_VNew_Serial(NRev/2 * NP, sunctx);
+            for (int j = 0; j < NRev/2 * NP; j++) 
+            {
+                Ith(adcvcc, j + 1) = 0;
+            }
+        """)
+        println(file,"""
+            double** vsub = new double*[L];
+            for(int i = 0; i < L; i++) {
+                vsub[i] = new double[NRev * 2];
+            }
+        """)
+        println(file,"""
+            
+            /*
+            *-----------------------------------------------------------------
+            * The following code was automatically generated by ReverseMC.jl.
+            *-----------------------------------------------------------------
+            */ 
+                    
+            switch (n)
+            { 
+        """)
+        for (j, tape) in enumerate(tapeList.GraphList)
+            tape.data.iX = 1
+            tape.data.iP = 1
+            tape.data.iY = 1  
+            println(file, "    case " *string(j-1)* ":")
+            for (i, node) in enumerate(tape.nodeList)
+                fwd_c_dfdp_codeGen_step!(file, tape, i,node)
+            end
+            println(file, """
+                    //-----------------------------------------------------------------------
+                    // Evaluate subgradients with reverse sweep through computational graph
+            """)
+            println(file, "        for (int i = 0; i < L" * string(j)* "; i++)")
+            println(file, "        {")
+            println(file, "            //vBar[i] = RevMC(v[i]);")
+            println(file, "            if (i == L" * string(j)* " - 1)")
+            println(file, """
+                        {
+                            double Sub[NRev] = {1,0,0,1};
+                            vBar[i].subbar(NRev/2, &Sub[0], &Sub[2]);
+                        }
+                        else
+                        {
+                            vBar[i].subbar(NRev/2);
+                        }
+                    }
+            """)                
+            for (i, node) in Iterators.reverse(enumerate(tape.nodeList))
+                rev_c_codeGen_step!(file, tape, i,node)            
+            end
+            println(file, """
+                
+                    break;       
+            """)            
+        end
+        println(file,"""
+            }
+            
+            for (int j = 0; j < NP; j++)
+            {
+                Ith(adcvcc, j + 1) = vBar[j + NX].cvsubbar(0) + vBar[j + NX].cvsubbar(1);
+                Ith(adcvcc, NP + j + 1) = vBar[j + NX].ccsubbar(0) + vBar[j + NX].ccsubbar(1);
+            }
+            
+            for(int i = 0; i < L; i++) {
+                delete[] vsub[i];
+            }
+            delete[] vsub;
+            
+            SUNContext_Free(&sunctx);
+            return adcvcc;
+            
+        }
+        """)
+        ########################## print tmpv function ###########################              
+        println(file, """
+            /*
+            * Generate tmpcv/tmpcc values in forward sweep
+            */
+            MC tmpv(double* vsub, int i)
+            {
+                MC MC1;
+                MC1.sub(NRev/2, &vsub[(i - 1) * 2], &vsub[(i - 1) * 2 + 4]);
+                return MC1;
+            }
+            """)
+    end
+
+    # generate C++ headerfile
+    open(headerFile * ".hpp", "w") do file
+        ########################## print all hearder files and Accessor macros ###########################
+        print(file, """
+            #ifndef REVERSEAD_H
+            #define REVERSEAD_H
+            #include <vector>
+            #include <iostream>
+            #include <algorithm> 
+            #include <nvector/nvector_serial.h>    /* access to serial N_Vector            */
+            #include "interval.hpp"                /* access to interval                   */
+            #include "mccormick.hpp"               /* access to McCormick relaxations      */
+            #include "revmccormick.hpp"            /* access to McCormick relaxations with reverse subgradients */
+    
+            /* Accessor macros */
+            #define Ith(v,i)    NV_Ith_S(v,i-1)         /* i-th vector component i=1..NEQ */
+            #define IJth(A,i,j) SM_ELEMENT_D(A,i-1,j-1) /* (i,j)-th matrix component i,j=1..NEQ */ 
+            
+            """)
+        println(file, "#define NP       " * string(tapeList.GraphList[1].parmDim) * "           /* number of problem parameters */")
+        println(file, "#define NX       " * string(tapeList.GraphList[1].domainDim) * "           /* number of state variables */")
+        println(file, "#define NRev     4           /* total number of cvsub/ccsub of each component in reverse MC*/")
+        for (j,tape) in enumerate(tapeList.GraphList)
+            println(file, "#define L" * string(j)* "       " * string(length(tape.nodeList)-tape.rangeDim) * "          /* tape length */")
+        end
+        a = ""
+        for (j,tape) in enumerate(tapeList.GraphList)
+            a = string(a,"L" *string(j)* ", ")
+        end
+        println(file, "#define L        std::max({" * a[1:end-2] * "})")
+
+        ########################## print fRevAD_dfdx function ###########################
+        println(file, """
+            typedef mc::Interval I;
+            typedef mc::McCormick<I> MC;
+            typedef mc::RevMcCormick<MC> RevMC;
+        
+            N_Vector fRevAD_dfdp(MC xMC[NX], MC pMC[NP], double sub[NRev * NRev], int n);
+            N_Vector fRevAD_dfdx(MC xMC[NX], MC pMC[NP], double sub[NRev * NRev], int n, int k);
+            MC tmpv(double* vsub, int i);
+            #endif
+            """)
+
+    end
+end
+
+
+
+function rev_c_codeGen_step!(
+    io::IO,
+    tape::CompGraph{TapeData, NodeData},
+    i::Int,
+    node::GraphNode{NodeData}
+)
+    # convenience labels
+    op = node.operation
+    nParents = length(node.parentIndices)
+    vBarStr = "vBar[" * string(i-1) * "]"  
+    uStr = "tmpv(vsub[" * string(i-1) * "],"    
+    uBarStr(j) = "        vBar[" * string(node.parentIndices[j]-1) * "]" 
+    uBarStr_(j) = "vBar[" * string(node.parentIndices[j]-1) * "]"
+    uEqUBarStr(j) = uBarStr(j) * " = " * uBarStr_(j)  
+    uEqUPlusVBarStr(j) = uEqUBarStr(j) * " + " * vBarStr  
+    uEqUMinusVBarStr(j) = uEqUBarStr(j) * " - " * vBarStr     
+    cStr = string(node.constValue)
+    cM1Str = string(node.constValue - 1)
+    t = tape.data
+
+    
+    # compute node value based on operation type
+    if op == :input
+        t.iX -= 1
+    elseif op == :parm
+        t.iP -= 1
+    elseif op == :output
+        t.iY -= 1
+
+    elseif op == :const
+        # do nothing in this case
+
+    elseif nParents == 1
+        if op == :-
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+
+        elseif op == :inv
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+            
+        elseif op == :exp 
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+            
+        elseif op == :log
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+            
+
+        elseif op == :sin
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+
+        elseif op == :cos
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+            
+        elseif op == :abs
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+
+        elseif op == :^
+            println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+                        
+        else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+        end
+        
+    elseif nParents == 2
+        if node.parentIndices[1] > node.parentIndices[2]
+            if op == :+
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 2);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 1);")
+            
+            elseif op == :-
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 2);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 1);")
+
+            
+            elseif op == :*
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 2);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 1);")
+        
+
+            elseif op == :/
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 2);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 1);")
+            
+
+            elseif op == :^
+                u2Node = tape.nodeList[node.parentIndices[2]]
+                if u2Node.operation == :const
+                    powStr = string(u2Node.constValue)
+                    powM1Str = string(u2Node.constValue - 1)            
+                    println(io, uEqUPlusVBarStr(1) * " * " * uStr(2) * " 1);")
+                
+                else
+                    throw(DomainError("x^y term with varying y; write this as exp(y*log(x)) instead"))
+                end
+            else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+            end
+        
+        else
+            if op == :+
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 2);")
+            
+            elseif op == :-
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 2);")
+
+            
+            elseif op == :*
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 2);")
+        
+
+            elseif op == :/
+                println(io, uEqUPlusVBarStr(1) * " * " * uStr * " 1);")
+                println(io, uEqUPlusVBarStr(2) * " * " * uStr * " 2);")
+            
+
+            elseif op == :^
+                u2Node = tape.nodeList[node.parentIndices[2]]
+                if u2Node.operation == :const
+                    powStr = string(u2Node.constValue)
+                    powM1Str = string(u2Node.constValue - 1)            
+                    println(io, uEqUPlusVBarStr(1) * " * " * uStr(2) * " 1);")
+                
+                else
+                    throw(DomainError("x^y term with varying y; write this as exp(y*log(x)) instead"))
+                end
+            else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+            end   
+        end
+    else
+        throw(DomainError("unsupported elemental operation: " * String(op)))
+    end
+end
+
+
+function fwd_c_dfdx_codeGen_step!(
+    io::IO,
+    tape::CompGraph{TapeData, NodeData},
+    i::Int,
+    k::Int,
+    node::GraphNode{NodeData}
+)
+    # convenience labels
+    op = node.operation
+    nParents = length(node.parentIndices)
+    vStr = "        v[" * string(i-1) * "]"
+    uStr(j) = "v[" * string(node.parentIndices[j]-1) * "]"
+    cStr = string(node.constValue)
+    t = tape.data               
+    indexV = "vsub[" * string(i-1) * "]"
+    index = string(i-1)
+    pushVector = "
+        for (int i = 0; i < NRev; i++)
+        {
+           "*indexV*"[i] = v["*index*"].cvsub(i);
+           "*indexV*"[NRev + i] = v["*index*"].ccsub(i);
+        }
+    "   
+    # compute node value based on operation type
+
+    if op == :input
+        println(io, vStr * " = xMC[" * string(t.iX-1) * "];")
+        t.iX += 1
+
+    elseif op == :parm
+        println(io, vStr * " = pMC[" * string(t.iP-1) * "];")
+        t.iP += 1
+        
+    elseif op == :output
+        t.iY += 1
+        
+    elseif op == :const
+        println(io, vStr * " = " * cStr * ";")
+       
+    elseif nParents == 1
+        u1Node = tape.nodeList[node.parentIndices[1]]
+        initV = "        "*uStr(1)*".sub(NRev, &sub[0], &sub[4]);"
+        if u1Node.operation == :parm
+            initV = ""
+        elseif u1Node.operation == :const
+            initV = ""
+        elseif u1Node.operation == :input
+            if node.parentIndices[1] == k
+                initV = "        "*uStr(1)*".sub(NRev, &sub[0+k], &sub[0+k]);"
+            end   
+        end
+
+        if op == :-
+            println(io, initV)
+            println(io, vStr * " = -" * uStr(1) * ";")
+            println(io, pushVector)
+
+        elseif op == :inv
+            println(io, initV)
+            println(io, vStr * " = inv(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :exp
+            println(io, initV)
+            println(io, vStr * " = exp(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :log
+            println(io, initV)
+            println(io, vStr * " = log(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :sin
+            println(io, initV)
+            println(io, vStr * " = sin(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :cos
+            println(io, initV)
+            println(io, vStr * " = cos(" * uStr(1) * ");")
+            println(io, pushVector)
+            
+        elseif op == :abs
+            println(io, initV)
+            println(io, vStr * " = fabs(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :^
+            # in this case the power is stored as node.constValue
+            println(io, initV)
+            println(io, vStr * " = pow(" * uStr(1) * ", " * cStr * ");")
+            println(io, pushVector)
+        else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+        end
+        
+
+
+    elseif nParents == 2
+        if node.parentIndices[1]< node.parentIndices[2]
+            u2Node = tape.nodeList[node.parentIndices[1]]
+            u3Node = tape.nodeList[node.parentIndices[2]]
+            initV1 = "        "*uStr(1)*".sub(NRev, &sub[0], &sub[4]);"
+            initV2 = "        "*uStr(2)*".sub(NRev, &sub[8], &sub[12]);"
+            
+            if u2Node.operation == :parm 
+                initV1 = ""
+            elseif u2Node.operation == :const
+                initV1 =""
+            elseif u2Node.operation == :input
+                if node.parentIndices[1] == k
+                    initV1 = "        "*uStr(1)*".sub(NRev, &sub[0+k], &sub[0+k]);"
+                end
+            end
+            
+            if u3Node.operation == :parm 
+                initV2 =""
+            elseif u3Node.operation == :const
+                initV2 =""
+            elseif u3Node.operation == :input
+                if node.parentIndices[2] == k
+                    initV2 = "        "*uStr(2)*".sub(NRev, &sub[8+k], &sub[8+k]);"
+                end
+            end
+            
+        elseif node.parentIndices[1]> node.parentIndices[2]
+            u2Node = tape.nodeList[node.parentIndices[1]]
+            u3Node = tape.nodeList[node.parentIndices[2]]
+            initV1 = "        "*uStr(1)*".sub(NRev, &sub[8], &sub[12]);"
+            initV2 = "        "*uStr(2)*".sub(NRev, &sub[0], &sub[4]);"
+            
+            if u2Node.operation == :parm 
+                initV1 = ""
+            elseif u2Node.operation == :const
+                initV1 =""
+            elseif u2Node.operation == :input
+                if node.parentIndices[1] == k
+                    initV1 = "        "*uStr(1)*".sub(NRev, &sub[8+k], &sub[8+k]);"
+                end
+            end
+            
+            if u3Node.operation == :parm 
+                initV2 =""
+            elseif u3Node.operation == :const
+                initV2 =""
+            elseif u3Node.operation == :input
+                if node.parentIndices[2] == k
+                    initV2 = "        "*uStr(2)*".sub(NRev, &sub[0+k], &sub[0+k]);"
+                end
+            end
+        end
+            
+                 
+        if op == :+
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " + " * uStr(2) * ";")
+            println(io, pushVector)
+
+        elseif op == :-
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " - " * uStr(2) * ";")
+            println(io, pushVector)
+
+        elseif op == :*
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " * " * uStr(2) * ";")
+            println(io, pushVector)
+
+        elseif op == :/
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " / " * uStr(2) * ";")
+            println(io, pushVector)
+
+        else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+        end
+    else
+        throw(DomainError("unsupported elemental operation: " * String(op)))
+    end
+end
+
+function fwd_c_dfdp_codeGen_step!(
+    io::IO,
+    tape::CompGraph{TapeData, NodeData},
+    i::Int,
+    node::GraphNode{NodeData}
+)
+    # convenience labels
+    op = node.operation
+    nParents = length(node.parentIndices)
+    vStr = "        v[" * string(i-1) * "]"
+    uStr(j) = "v[" * string(node.parentIndices[j]-1) * "]"
+    cStr = string(node.constValue)
+    t = tape.data                 
+    indexV = "vsub[" * string(i-1) * "]"
+    index = string(i-1) 
+    pushVector = "
+        for (int i = 0; i < NRev; i++)
+        {
+            "*indexV*"[i] = v["*index*"].cvsub(i);
+            "*indexV*"[NRev + i] = v["*index*"].ccsub(i);
+        }
+    "
+    # compute node value based on operation type
+
+    if op == :input
+        println(io, vStr * " = xMC[" * string(t.iX-1) * "];")
+        t.iX += 1
+
+    elseif op == :parm
+        println(io, vStr * " = pMC[" * string(t.iP-1) * "];")
+        t.iP += 1
+        
+    elseif op == :output
+        t.iY += 1
+        
+    elseif op == :const
+        println(io, vStr * " = " * cStr * ";")
+       
+    elseif nParents == 1
+        u1Node = tape.nodeList[node.parentIndices[1]]
+        initV = "        "*uStr(1)*".sub(NRev, &sub[0], &sub[4]);"
+        if u1Node.operation == :const
+            initV = ""
+        elseif u1Node.operation == :input
+            initV = ""  
+        end
+
+        if op == :-
+            println(io, initV)
+            println(io, vStr * " = -" * uStr(1) * ";")
+            println(io, pushVector)
+
+        elseif op == :inv
+            println(io, initV)
+            println(io, vStr * " = inv(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :exp
+            println(io, initV)
+            println(io, vStr * " = exp(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :log
+            println(io, initV)
+            println(io, vStr * " = log(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :sin
+            println(io, initV)
+            println(io, vStr * " = sin(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :cos
+            println(io, initV)
+            println(io, vStr * " = cos(" * uStr(1) * ");")
+            println(io, pushVector)
+        
+        elseif op == :abs
+            println(io, initV)
+            println(io, vStr * " = fabs(" * uStr(1) * ");")
+            println(io, pushVector)
+
+        elseif op == :^
+            # in this case the power is stored as node.constValue
+            println(io, initV)
+            println(io, vStr * " = pow(" * uStr(1) * ", " * cStr * ");")
+            println(io, pushVector)
+        else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+        end
+        
+
+
+    elseif nParents == 2
+        if node.parentIndices[1]< node.parentIndices[2]
+            u2Node = tape.nodeList[node.parentIndices[1]]
+            u3Node = tape.nodeList[node.parentIndices[2]]
+            initV1 = "        "*uStr(1)*".sub(NRev, &sub[0], &sub[4]);"
+            initV2 = "        "*uStr(2)*".sub(NRev, &sub[8], &sub[12]);"
+            
+            if u2Node.operation == :const
+                initV1 =""
+            elseif u2Node.operation == :input
+                initV1 = ""
+            end
+            
+            if u3Node.operation == :const
+                initV2 =""
+            elseif u3Node.operation == :input
+                initV2 =""
+            end
+            
+        elseif node.parentIndices[1]> node.parentIndices[2]
+            u2Node = tape.nodeList[node.parentIndices[1]]
+            u3Node = tape.nodeList[node.parentIndices[2]]
+            initV1 = "        "*uStr(1)*".sub(NRev, &sub[8], &sub[12]);"
+            initV2 = "        "*uStr(2)*".sub(NRev, &sub[0], &sub[4]);"
+            
+            if u2Node.operation == :const
+                initV1 =""
+            elseif u2Node.operation == :input
+                initV1 =""
+            end
+            
+            if u3Node.operation == :const
+                initV2 =""
+            elseif u3Node.operation == :input
+                initV2 =""
+            end
+        end
+            
+                 
+        if op == :+
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " + " * uStr(2) * ";")
+            println(io, pushVector)
+
+        elseif op == :-
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " - " * uStr(2) * ";")
+            println(io, pushVector)
+
+        elseif op == :*
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " * " * uStr(2) * ";")
+            println(io, pushVector)
+
+        elseif op == :/
+            println(io, initV1)
+            println(io, initV2)
+            println(io, vStr * " = " * uStr(1) * " / " * uStr(2) * ";")
+            println(io, pushVector)
+
+        else
+            throw(DomainError("unsupported elemental operation: " * String(op)))
+        end
+    else
+        throw(DomainError("unsupported elemental operation: " * String(op)))
+    end
+end
+end # module
