@@ -2,9 +2,9 @@
  * Last Modified by Yulan Zhang
  * 2023/05/15
  * Example 6 for CACE paper
- * Forward subgardient evaluation system
+ * Forward subgradient evaluation system
  * For use in comparing CPU time of using reverse AD and forward AD
- * The number of parameter can be modified to test the corrsponding computatiional time
+ * The number of parameters can be modified to test the corresponding computational time
  * -----------------------------------------------------------------*/
 
 
@@ -46,7 +46,7 @@ using namespace std;
 
 #define NP    500             /* number of problem parameters */
 #define NX    1             /* number of state variables */
-#define NS    2*NP          /* number of subgradients of ith yicv and yicc with repect to each pi (from i=1 to i=NP) */
+#define NS    2*NP          /* number of subgradients of ith yicv and yicc with respect to each pi (from i=1 to i=NP) */
 #define NEQ   NX + NX*4 + NP*2*NX  /* number of equations: original solution, state relaxation, subgradient  */
 #define ZERO  RCONST(0.0)
 #define xi       0
@@ -54,10 +54,10 @@ using namespace std;
 #define varyp    -0.5
 
 
-/* define the values of paraeters */
+/* define the values of parameters */
 //double pL[NP] = { -10, -5, 0, 0, -1,- 1,0,0,};      /* lower bound of parameters */
 //double pU[NP] = { 10, 0, 3, 3, 1,2, 5,5,};  /* upper bound of parameters */
-//double fixedp[NP] = {-1,-4.2,2.1,2.9,0.1,-0.1,0.5,0.5 };    /* finxed value of parameters*/
+//double fixedp[NP] = {-1,-4.2,2.1,2.9,0.1,-0.1,0.5,0.5 };    /* fixed value of parameters*/
 //double pL[NP] = {1.0,-2,-2,-2,-2,-2,-2,-2};
 //double pU[NP] = {2,2,2,2,2,2,2,2};
 //double fixedp[NP] = {1.2, 1.5, 0.2, 0.2, 0.5, -1, -0.5, -2};
@@ -105,7 +105,7 @@ int main()
     printf("\n\n");
     printf("The results of parametric solution x with respect to p");
     
-    /* define the values of paraeters */
+    /* define the values of parameters */
     for(int i=0; i<NP; i++){
         pL[i]=-2.0;
         pU[i]=2.0;
@@ -268,7 +268,7 @@ template <typename T> T Original_initial(T p[NP], int n)
 
     T x0;
 
-    /* Size of n depends on the number of functions in user-sipplied ODE system*/
+    /* Size of n depends on the number of functions in user-supplied ODE system*/
     switch (n)
     {
     case 0:
@@ -282,7 +282,7 @@ template <typename T> T Original_initial(T p[NP], int n)
 
 
 /*
-* f routine, which is the original right hand side function returning the interval or McCormick.
+* f routine, which is the original right-hand side function returning the interval or McCormick.
 */
 
 template <typename T, typename U> T Original_RHS(T x[NX], U p[NP], int n)
@@ -312,7 +312,7 @@ template <typename T, typename U> T Original_RHS(T x[NX], U p[NP], int n)
 
 
 /*
- * Set initial conditions for auxiliary system which solves original ODE solutions,
+ * Set initial conditions for an auxiliary system which solves original ODE solutions,
  * along with convex/concave relaxations.
 */
 
@@ -390,7 +390,7 @@ static N_Vector x_initial(N_Vector x, void* user_data)
 /*
 * RHS of the auxiliary ODE system which solves original ODE solutions,
 * along with convex/concave relaxations.
-* This ODEs is solved in a forward mode.
+* This ODE is solved in a forward mode.
 */
 
 static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
@@ -403,7 +403,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
     realtype p[NP];
     realtype xori[NX], xd[NX];
 
-    //forward sensitivity analysis
+    //Forward sensitivity analysis
     realtype cvsub[NX * NP], ccsub[NX * NP];
     MC pMCsub[NP], xMCsub[NX], dxcvsub[NX], dxccsub[NX];
     UserData data;
@@ -416,7 +416,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
         pI[j] = I(pL[j], pU[j]);
         pMC[j] = MC(I(pL[j], pU[j]), p[j]);
         pMCsub[j] = MC(I(pL[j], pU[j]), p[j]);
-        // DEbug: Cvode solver showes that convergence test failed repeatedly or with |h| = hmin
+        // DEbug: Cvode solver shows that convergence test failed repeatedly or with |h| = hmin
         // Solution: Missing initialization of parameters or state variables.
     }
 
@@ -497,17 +497,17 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
 
         /*-------------------------------------------------------------*/
         /*-------------------------------------------------------------*/
-        /* Construct the state bounds computation system 's RHS */
+        /* Construct the state bounds computation system's RHS */
 
         /* Flatten the ith interval xI (xiL, xiU) to (xiL, xiL)*/
         xI[j] = I(xL[j], xL[j]);
-        /* Apply the flattened xI into original RHS function, then obtain the lower bound */
+        /* Apply the flattened xI into the original RHS function, then obtain the lower bound */
         dxL[j] = Original_RHS(xI, pI, j).l();
 
 
         /* Flatten the ith interval xI (xiL, xiU) to (xiU, xiU)*/
         xI[j] = I(xU[j], xU[j]);
-        /* Apply the flattened xI into original RHS function, then obtain the upper bound */
+        /* Apply the flattened xI into the original RHS function, then obtain the upper bound */
         dxU[j] = Original_RHS(xI, pI, j).u();
 
 
@@ -517,18 +517,18 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
 
         /*-------------------------------------------------------------*/
         /*-------------------------------------------------------------*/
-        /* Construct the state relaxatoions computation system 's RHS */
+        /* Construct the state relaxations computation system's RHS */
 
         /* Flatten the ith xMC (xiL,xiU,xicv,xicc) to (xiL,xiU,xicv,xicv)*/
         xMC[j] = MC(I(xL[j], xU[j]), xcv[j], xcv[j]);
-        /* Apply the flattened xMC into original RHS function,
+        /* Apply the flattened xMC into the original RHS function,
            then obtain the convex relaxation */
         dxcv[j] = Original_RHS(xMC, pMC, j).cv();
 
 
         /* Flatten the ith xMC (xiL,xiU,xicv,xicc) to (xiL,xiU,xicc,xicc)*/
         xMC[j] = MC(I(xL[j], xU[j]), xcc[j], xcc[j]);
-        /* Apply the flattened xMC into original RHS function,
+        /* Apply the flattened xMC into the original RHS function,
            then obtain the concave relaxation */
         dxcc[j] = Original_RHS(xMC, pMC, j).cc();
 
@@ -544,7 +544,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
         to (xiL,xiU,xicv,xicv,xicvsub,xicvsub)*/
         xMCsub[j] = MC(I(xL[j], xU[j]), xcv[j], xcv[j]);
         xMCsub[j].sub(NP, &cvsub[j * NP], &cvsub[j * NP]);
-        /* Apply the flattened the xMCsub into the original RHS function */
+        /* Apply the flattened xMCsub into the original RHS function */
         dxcvsub[j] = Original_RHS(xMCsub, pMCsub, j);
 
 
@@ -552,7 +552,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
         to (xiL,xiU,xicv,xicv,xicvsub,xicvsub)*/
         xMCsub[j] = MC(I(xL[j], xU[j]), xcc[j], xcc[j]);
         xMCsub[j].sub(NP, &ccsub[j * NP], &ccsub[j * NP]);
-        /* Apply the flattened the xMCsub into the original RHS function */
+        /* Apply the flattened xMCsub into the original RHS function */
         dxccsub[j] = Original_RHS(xMCsub, pMCsub, j);
 
 
