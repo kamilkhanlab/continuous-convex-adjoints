@@ -2,7 +2,7 @@
  * Last Modified by Yulan Zhang
  * 2023/04/27
  * Example 3 for CACE paper
- * Adjoint subgardient evaluation system with forward-mode subgradient AD
+ * Adjoint subgradient evaluation system with forward-mode subgradient AD
  * -----------------------------------------------------------------*/
 
 
@@ -58,7 +58,7 @@ typedef mc::Interval I;
 typedef mc::McCormick<I> MC;
 
 
-/* define the values of paraeters */
+/* define the values of parameters */
 double pL[NP] = { -6.5, 0.01 }; /* lower bound of parameters */
 double pU[NP] = { 6.5,  0.5 };    /* upper bound of parameters */
 double fixedp[NP] = { -3.0, 0.5};    /* values of parameters      */
@@ -154,7 +154,7 @@ int main()
     x = x_initial(x, data);
 
 
-    /* Set the scalar realtive and absolute tolerances reltolQ and abstolQ */
+    /* Set the scalar relative and absolute tolerances reltolQ and abstolQ */
     reltolQ = RTOL;
     abstolQ = ATOLq;
 
@@ -167,12 +167,12 @@ int main()
     if (check_retval((void*)cvode_mem, "CVodeCreate", 0)) return(1);
 
     /* Call CVodeInit to initialize the integrator memory and specify the
-       user's right hand side function in y'=f(t,y), the initial time T0, and
+       user's right-hand side function in y'=f(t,y), the initial time T0, and
        the initial dependent variable vector y. */
 
 
        //// The first bug, failing to allocate memory.
-       //// Solution: check the dimenional of y and dy
+       //// Solution: check the dimensional of y and dy
     retval = CVodeInit(cvode_mem, f, T0, x);
     if (check_retval(&retval, "CVodeInit", 1)) return(1);
 
@@ -206,9 +206,9 @@ int main()
     if (check_retval(&retval, "CVodeSetMaxNumSteps", 1)) return(1);
 
     /* Allocate global memory */
-    /* Call CVodeAdjInit to update CVODES memory block by allocting the internal
+    /* Call CVodeAdjInit to update the CVODES memory block by allocating the internal
        memory needed for backward integration.*/
-    steps = STEPS; /* no. of integration steps between two consecutive ckeckpoints*/
+    steps = STEPS; /* no. of integration steps between two consecutive checkpoints*/
     retval = CVodeAdjInit(cvode_mem, steps, CV_HERMITE);
     /*
     retval = CVodeAdjInit(cvode_mem, steps, CV_POLYNOMIAL);
@@ -404,7 +404,7 @@ template <typename T> T Original_initial(T p[NP], int n)
 
     T x0;
 
-    /* Size of n depends on the number of functions in user-sipplied ODE system*/
+    /* Size of n depends on the number of functions in the user-supplied ODE system*/
     switch (n)
     {
     case 0:
@@ -422,7 +422,7 @@ template <typename T> T Original_initial(T p[NP], int n)
 }
 
 /*
- * Set initial conditions for auxiliary system which solves original ODE solutions,
+ * Set initial conditions for an auxiliary system which solves original ODE solutions,
  * along with convex/concave relaxations.
 */
 
@@ -467,14 +467,14 @@ static N_Vector x_initial(N_Vector x, void* user_data)
 
 }
 /*
-* f routine, which is the original right hand side function returning the interval or McCormick.
+* f routine, which is the original right-hand side function returning the interval or McCormick.
 */
 
 template <typename T, typename U> T Original_RHS(T x[NX], U p[NP], int n)
 {
     T f_rhs;
 
-    /* Size of n depends on the number of functions in user-sipplied ODE system*/
+    /* Size of n depends on the number of functions in the user-supplied ODE system*/
     switch (n)
     {
     case 0:
@@ -550,13 +550,13 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
 
         /* Flatten the ith interval xI (xiL, xiU) to (xiL, xiL)*/
         xI[j] = I(xL[j], xL[j]);
-        /* Apply the flattened xI into original RHS function, then obtain the lower bound */
+        /* Apply the flattened xI into the original RHS function, then obtain the lower bound */
         dxL[j] = Original_RHS(xI, pI, j).l();
 
 
         /* Flatten the ith interval xI (xiL, xiU) to (xiU, xiU)*/
         xI[j] = I(xU[j], xU[j]);
-        /* Apply the flattened xI into original RHS function, then obtain the upper bound */
+        /* Apply the flattened xI into the original RHS function, then obtain the upper bound */
         dxU[j] = Original_RHS(xI, pI, j).u();
 
 
@@ -566,18 +566,18 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
 
         /*-------------------------------------------------------------*/
         /*-------------------------------------------------------------*/
-        /* Construct the state relaxatoions computation system 's RHS */
+        /* Construct the state relaxations computation system's RHS */
 
         /* Flatten the ith xMC (xiL,xiU,xicv,xicc) to (xiL,xiU,xicv,xicv)*/
         xMC[j] = MC(I(xL[j], xU[j]), xcv[j], xcv[j]);
-        /* Apply the flattened xMC into original RHS function,
+        /* Apply the flattened xMC into the original RHS function,
            then obtain the convex relaxation */
         dxcv[j] = Original_RHS(xMC, pMC, j).cv();
 
 
         /* Flatten the ith xMC (xiL,xiU,xicv,xicc) to (xiL,xiU,xicc,xicc)*/
         xMC[j] = MC(I(xL[j], xU[j]), xcc[j], xcc[j]);
-        /* Apply the flattened xMC into original RHS function,
+        /* Apply the flattened xMC into the original RHS function,
            then obtain the concave relaxation */
         dxcc[j] = Original_RHS(xMC, pMC, j).cc();
 
@@ -630,7 +630,7 @@ static int ewt(N_Vector x, N_Vector w, void* user_data)
 
 /*
  * fB routine. Compute fB(t,x,xB).
- * fB is the RHS functions for ODE system which is to solve lambda.
+ * fB is the RHS function for the ODE system which is to solve lambda.
  * fB = lambda^T * df/dx
 */
 
@@ -647,14 +647,14 @@ static int fB(realtype t, N_Vector x, N_Vector xB, N_Vector xBdot, void* user_da
     data = (UserData)user_dataB;
     double tempsub[2 * NX * 2 * NX];
 
-    /* Assign values to p, and MC pMCsub (for subgardients evaluations) */
+    /* Assign values to p, and MC pMCsub (for subgradients evaluations) */
 
     for (int j = 0; j < NP; j++) {
         p[j] = data->p[j];
         pMCsub[j] = MC(I(pL[j], pU[j]), p[j]);
     }
 
-    /* Initialize subgradeints for pMCsub with respect to relaxated x*/
+    /* Initialize subgradients for pMCsub with respect to relaxed x*/
     /* Since p are not functions of x, dp/dx should be equal to 0
        and the dimension of dp/dx should be the same as df/dx*/
 
@@ -667,8 +667,8 @@ static int fB(realtype t, N_Vector x, N_Vector xB, N_Vector xBdot, void* user_da
         pMCsub[j].sub(2 * NX);
     }
 
-    //Debug: CVODE fail to converage
-    //Solution: check the index of vector defined by CVODES
+    //Debug: CVODE fails to coverage
+    //Solution: Check the index of the vector defined by CVODES
     //Vector or Matrix defined by CVODES must start from 1 instead of 0
 
     /* Initialize lambda vector */
@@ -742,7 +742,7 @@ static int fB(realtype t, N_Vector x, N_Vector xB, N_Vector xBdot, void* user_da
             }
         }
         
-        /* Apply the flattened the xMCsub into the original RHS function */
+        /* Apply the flattened xMCsub into the original RHS function */
         dfdxcv[j] = Original_RHS(xMCsub, pMCsub, j);
 
         /* Flattening the ith xMCsub (xiL,xiU,xicv,xicc,xicvsub,xiccsub)
@@ -754,7 +754,7 @@ static int fB(realtype t, N_Vector x, N_Vector xB, N_Vector xBdot, void* user_da
             }
         }
         
-        /* Apply the flattened the xMCsub into the original RHS function */
+        /* Apply the flattened xMCsub into the original RHS function */
         dfdxcc[j] = Original_RHS(xMCsub, pMCsub, j);
 
 
@@ -799,7 +799,7 @@ static int fB(realtype t, N_Vector x, N_Vector xB, N_Vector xBdot, void* user_da
 
 /*
  * fQB routine. Compute integrand for quadratures
- * fQB is the RHS functions for ODE system which is to compute integartion of lambda^T*df/dp.
+ * fQB is the RHS function for the ODE system which is to compute the integration of lambda^T*df/dp.
 */
 
 static int fQB(realtype t, N_Vector x, N_Vector xB, N_Vector qBdot, void* user_dataB)
@@ -816,14 +816,14 @@ static int fQB(realtype t, N_Vector x, N_Vector xB, N_Vector qBdot, void* user_d
 
     data = (UserData)user_dataB;
 
-    /* Assign values to p, interval pI, and MC pMCsub (for subgardients evaluations)*/
+    /* Assign values to p, interval pI, and MC pMCsub (for subgradients evaluations)*/
     for (int j = 0; j < NP; j++) {
         p[j] = data->p[j];
         pMCsub[j] = MC(I(pL[j], pU[j]), p[j]);
     }
 
 
-    /* Initialize subgradeints for pMCsub with respect to p*/
+    /* Initialize subgradients for pMCsub with respect to p*/
     // e.g. if NP = 2, cvsub_p1 = 1.0, 0.0, ccsub_p1 = 1.0, 0.0
     double sub[NP * NP] = { 0 };
     for (int j = 0; j < NP * NP; j++) {
@@ -877,7 +877,7 @@ static int fQB(realtype t, N_Vector x, N_Vector xB, N_Vector qBdot, void* user_d
         to (xiL,xiU,xicv,xicv,xicvsub,xicvsub)*/
         xMCsub[j] = MC(I(xL[j], xU[j]), xcv[j], xcv[j]);
         xMCsub[j].sub(NP);
-        /* Apply the flattened the xMCsub into the original RHS function */
+        /* Apply the flattened xMCsub into the original RHS function */
         dfdpcv[j] = Original_RHS(xMCsub, pMCsub, j);
 
 

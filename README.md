@@ -63,17 +63,16 @@ Then, the subgradient $\tilde{s}$ of $J^{\mathrm{cv}}$ at $\tilde{\mathbf{p}}$ i
 
 $$ 
 \begin{align*} 
-\tilde{\mathbf{s}} = [\mathbf{S}^{\mathrm{C}}_0]^\mathrm{T}\boldsymbol{\lambda}(t_0) + \boldsymbol{\rho} + \int_{t_0}^{t_f}[\Theta_{\mathrm{B}}(t,\tilde{\mathbf{p}})]^{\mathrm{T}} \boldsymbol{\lambda}(t) dt \in \partial J(\tilde{\mathbf{p}}). 
+\tilde{\mathbf{s}} = [\mathbf{S}^{\mathrm{C}}_0]^\mathrm{T}\boldsymbol{\lambda}(t_0) + \boldsymbol{\rho} + \int\_{t_0}^{t_f} [\Theta\_{\mathrm{B}}(t,\tilde{\mathbf{p}})]^{\mathrm{T}} \boldsymbol{\lambda}(t) dt \in \partial J(\tilde{\mathbf{p}}). 
 \end{align*} 
 $$
-
 
 The final quadrature term can be integrated simultaneously with the adjoint ODE system. To construct this adjoint subgradient evaluation system, the subgradient propagation coefficients $(\Theta_A, \Theta_B)$ must be constructed. These may be constructed by either the forward-mode automatic differentiation (AD) procedure for subgradient computation [(Mitsos et al., 2009)](https://epubs.siam.org/doi/abs/10.1137/080717341?casa_token=X6tjOHIMtuUAAAAA:YEYWjPwxVy89IxHdTtORz7-ezvmI9JVrPxtbrFeCZZI-i_HJWi2XTd3WS3boCcv_IWQULb-HjNT7Mg), or the corresponding reverse-mode AD [(Beckers et al., 2012)](https://link.springer.com/chapter/10.1007/978-3-642-30023-3_10).
 
 ## Implementation contents
 The forward-mode subgradient AD (Mitsos et al., 2009) can be employed using [MC++](https://github.com/coin-or/MCpp) directly, while the reverse-mode AD (Beckers et al., 2012) is implemented by our own differentiation and code generation tools.
 
-For the reverse-mode subgradient AD (Beckers et al., 2012), the [`/src/`](/src/) folder provides the `ReverseADforVW` module, a computational graph generation tool [CompGraphs.jl](src/CompGraphs.jl), and a variant `RevMcCormick` of [MC++](https://github.com/coin-or/MCpp)’s McCormick class. For any user-defined factorable function that is compatible with [MC++](https://github.com/coin-or/MCpp), the `ReverseADforVW` module in [ReverseMC.jl](src/ReverseMC.jl) automatically constructs its computational graph by adapting our computational graph generation module `CompGraphs` in [CompGraphs.jl](https://github.com/kamilkhanlab/collab-yz/blob/main/src/adjoint-subgradient/CompGraphs.jl), and then generates the corresponding C++ code. The class `RevMcCormick` in [revmccormick.hpp](https://github.com/kamilkhanlab/collab-yz/blob/main/src/adjoint-subgradient/revmccormick.hpp) is developed to store propagated subgradient values during the reverse AD sweep. 
+For the reverse-mode subgradient AD (Beckers et al., 2012), the [`/src/`](/src/) folder provides the `ReverseADforVW` module, a computational graph generation tool [CompGraphs.jl](src/CompGraphs.jl), and a variant `RevMcCormick` of [MC++](https://github.com/coin-or/MCpp)’s McCormick class. For any user-defined factorable function that is compatible with [MC++](https://github.com/coin-or/MCpp), the `ReverseADforVW` module in [ReverseADforVW.jl](src/ReverseADforVW.jl) automatically constructs its computational graph by adapting our computational graph generation module `CompGraphs` in [CompGraphs.jl](https://github.com/kamilkhanlab/collab-yz/blob/main/src/adjoint-subgradient/CompGraphs.jl), and then generates the corresponding C++ code. The class `RevMcCormick` in [revmccormick.hpp](https://github.com/kamilkhanlab/collab-yz/blob/main/src/adjoint-subgradient/revmccormick.hpp) is developed to store propagated subgradient values during the reverse AD sweep. 
 
 The [`/examples/`](/examples/) folder contains our code for four numerical examples in the accompanying manuscript. Note that this implementation itself can construct Scott and Barton's relaxations and adjoint subgradient evaluation systems automatically for any nonlinear dynamic optimization problem with an embedded system of parametric ODEs.
 

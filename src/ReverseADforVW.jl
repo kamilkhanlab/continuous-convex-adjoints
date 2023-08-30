@@ -1,14 +1,14 @@
 #=
-module ReverseMC
+module ReverseADforVW
 ================
-A quick implementation of adjoint mode computation of subgradients for McCormick relaxations, which invloves in applying reverse mode of automatic differentiation (AD) in subgradient evaluation. The reverse MC mode traverses a computational graph constructed by CompGraphs.jl, then generates the c++ code by stepping backward through the graph.  
+A quick implementation of adjoint mode computation of subgradients for McCormick relaxations, which involves applying the reverse mode of automatic differentiation (AD) in subgradient evaluation. The reverse MC mode traverses a computational graph constructed by CompGraphs.jl, then generates the c++ code by stepping backward through the graph.  
 Roughly follows the method description in Beckers, M., Mosenkis, V., & Naumann, U. (2012). Adjoint mode computation of subgradients for McCormick relaxations. In Recent advances in algorithmic differentiation (pp. 103-113). Springer, Berlin, Heidelberg.
 Requires CompGraphs.jl in the same folder.
 Written by Yulan Zhang on August 05, 2022.
-Last modified by Yulan Zhang on May 12, 2023
+Last modified by Yulan Zhang on Aug 30, 2023
 =#
 
-module ReverseMC
+module ReverseADforVW
 
 include("CompGraphs.jl")
 
@@ -16,7 +16,7 @@ using .CompGraphs, Printf
 
 export record_tape, generate_revMC_c_code!
 
-# struct for holding node-specific information in computational graph
+# struct for holding node-specific information in the computational graph
 mutable struct NodeData
     nothing
 end
@@ -55,7 +55,7 @@ TapeData() = TapeData(
     false                  # areBarsZero
 )
 
-# create a CompGraph "tape" of a provided funcntion for reverse AD    
+# create a CompGraph "tape" of a provided function for reverse AD    
 function record_tape(
     f::Function,
     domainDim::Int,
@@ -85,7 +85,7 @@ function generate_revMC_c_code!(
 
     # generate C++ script
     open(fileName * ".cpp", "w") do file
-        ########################## print all hearder files### ###########################
+        ########################## print all header files### ###########################
         print(file, """
             #include "reverseMC.hpp"              /* access to Reverse mode of subgradient evaluations */
             """)
@@ -94,7 +94,7 @@ function generate_revMC_c_code!(
         println(file, """
             /*
             * Reverse mode of automatic differentiation
-            * Computations of df/dx required by evalutaing fB
+            * Computations of df/dx required by evaluating fB
             */
             N_Vector fRevAD_dfdx(MC xMC[NX], MC pMC[NP], double sub[NRev * NRev], int n, int k)
             {""")
@@ -143,7 +143,7 @@ function generate_revMC_c_code!(
             end
             println(file, """
                     //-----------------------------------------------------------------------
-                    // Evaluate subgradients with reverse sweep through computational graph
+                    // Evaluate subgradients with a reverse sweep through the computational graph
             """)
             println(file, "        for (int i = 0; i < L" * string(j)* "; i++)")
             println(file, "        {")
@@ -195,7 +195,7 @@ function generate_revMC_c_code!(
         println(file, """
             /*
             * Reverse mode of automatic differentiation
-            * Computations of df/dp required by evalutaing fQB
+            * Computations of df/dp required by evaluating fQB
             */
             N_Vector fRevAD_dfdp(MC xMC[NX], MC pMC[NP], double sub[NRev * NRev], int n)
             {""")
@@ -243,7 +243,7 @@ function generate_revMC_c_code!(
             end
             println(file, """
                     //-----------------------------------------------------------------------
-                    // Evaluate subgradients with reverse sweep through computational graph
+                    // Evaluate subgradients with a reverse sweep through the computational graph
             """)
             println(file, "        for (int i = 0; i < L" * string(j)* "; i++)")
             println(file, "        {")
