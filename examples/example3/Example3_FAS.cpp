@@ -2,7 +2,7 @@
  * Last Modified by Yulan Zhang
  * 2023/04/27
  * Example 5 for CACE paper
- * Forwrad subgardient evaluation system
+ * Forward subgradient evaluation system
  * -----------------------------------------------------------------*/
 
 
@@ -44,7 +44,7 @@ using namespace std;
 
 #define NP    8             /* number of problem parameters */
 #define NX    5             /* number of state variables */
-#define NS    2*NP            /* number of subgradients of ith yicv and yicc with repect to each pi (from i=1 to i=NP) */
+#define NS    2*NP            /* number of subgradients of ith yicv and yicc with respect to each pi (from i=1 to i=NP) */
 #define NEQ   NX + NX*4 + NP*2*NX  /* number of equations: original solution, state relaxation, subgradient  */
 #define ZERO  RCONST(0.0)
 #define xi    1
@@ -52,10 +52,10 @@ using namespace std;
 
 
 
-/* define the values of paraeters */
+/* define the values of parameters */
 double pL[NP] = { 22.14, 80, 238, 30.6, 313.6, 423, 4.28, 0.84 };      /* lower bound of parameters */
 double pU[NP] = { 62.14, 146.5, 298, 70.6, 373.6, 483, 14.28, 1.16 };  /* upper bound of parameters */
-double fixedp[NP] = { 42.14,116.5,268,50.6,343.6,450, 10.78,1.0};    /* finxed value of parameters*/
+double fixedp[NP] = { 42.14,116.5,268,50.6,343.6,450, 10.78,1.0};    /* fixed value of parameters*/
 
 
 /* problem parameters */
@@ -251,7 +251,7 @@ template <typename T> T Original_initial(T p[NP], int n)
 
     T x0;
 
-    /* Size of n depends on the number of functions in user-sipplied ODE system*/
+    /* Size of n depends on the number of functions in the user-supplied ODE system*/
     switch (n)
     {
     case 0:
@@ -276,7 +276,7 @@ template <typename T> T Original_initial(T p[NP], int n)
 
 
 /*
- * Set initial conditions for auxiliary system which solves original ODE solutions,
+ * Set initial conditions for an auxiliary system which solves original ODE solutions,
  * along with convex/concave relaxations.
 */
 
@@ -295,7 +295,7 @@ static N_Vector x_initial(N_Vector x, void* user_data)
     }
 
 
-    /* Initialize subgradeints for pMC with respect to p themselves*/
+    /* Initialize subgradients for pMC with respect to p themselves*/
     // e.g. if NP = 2, cvsub_p1 = 1.0, 0.0, ccsub_p1 = 1.0, 0.0
     double sub[NP * NP] = { 0 };
     for (int j = 0; j < NP * NP; j++) {
@@ -394,7 +394,7 @@ template <typename T, typename U> T Original_RHS(T x[NX], U p[NP], int n)
 /*
 * RHS of the auxiliary ODE system which solves original ODE solutions,
 * along with convex/concave relaxations.
-* This ODEs is solved in a forward mode.
+* This ode is solved in a forward mode.
 */
 
 static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
@@ -407,7 +407,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
     realtype p[NP];
     realtype xori[NX], xd[NX];
 
-    //forward sensitivity analysis
+    //Forward sensitivity analysis
     realtype cvsub[NX * NP], ccsub[NX * NP];
     MC pMCsub[NP], xMCsub[NX], dxcvsub[NX], dxccsub[NX];
     UserData data;
@@ -420,7 +420,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
         pI[j] = I(pL[j], pU[j]);
         pMC[j] = MC(I(pL[j], pU[j]), p[j]);
         pMCsub[j] = MC(I(pL[j], pU[j]), p[j]);
-        // DEbug: Cvode solver showes that convergence test failed repeatedly or with |h| = hmin
+        // DEbug: Cvode solver shows that convergence test failed repeatedly or with |h| = hmin
         // Solution: Missing initialization of parameters or state variables.
     }
 
@@ -501,17 +501,17 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
 
         /*-------------------------------------------------------------*/
         /*-------------------------------------------------------------*/
-        /* Construct the state bounds computation system 's RHS */
+        /* Construct the state bounds computation system's RHS */
 
         /* Flatten the ith interval xI (xiL, xiU) to (xiL, xiL)*/
         xI[j] = I(xL[j], xL[j]);
-        /* Apply the flattened xI into original RHS function, then obtain the lower bound */
+        /* Apply the flattened xI into the original RHS function, then obtain the lower bound */
         dxL[j] = Original_RHS(xI, pI, j).l();
 
 
         /* Flatten the ith interval xI (xiL, xiU) to (xiU, xiU)*/
         xI[j] = I(xU[j], xU[j]);
-        /* Apply the flattened xI into original RHS function, then obtain the upper bound */
+        /* Apply the flattened xI into the original RHS function, then obtain the upper bound */
         dxU[j] = Original_RHS(xI, pI, j).u();
 
 
@@ -525,14 +525,14 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
 
         /* Flatten the ith xMC (xiL,xiU,xicv,xicc) to (xiL,xiU,xicv,xicv)*/
         xMC[j] = MC(I(xL[j], xU[j]), xcv[j], xcv[j]);
-        /* Apply the flattened xMC into original RHS function,
+        /* Apply the flattened xMC into the original RHS function,
            then obtain the convex relaxation */
         dxcv[j] = Original_RHS(xMC, pMC, j).cv();
 
 
         /* Flatten the ith xMC (xiL,xiU,xicv,xicc) to (xiL,xiU,xicc,xicc)*/
         xMC[j] = MC(I(xL[j], xU[j]), xcc[j], xcc[j]);
-        /* Apply the flattened xMC into original RHS function,
+        /* Apply the flattened xMC into the original RHS function,
            then obtain the concave relaxation */
         dxcc[j] = Original_RHS(xMC, pMC, j).cc();
 
@@ -556,7 +556,7 @@ static int f(realtype t, N_Vector x, N_Vector dx, void* user_data)
         to (xiL,xiU,xicv,xicv,xicvsub,xicvsub)*/
         xMCsub[j] = MC(I(xL[j], xU[j]), xcc[j], xcc[j]);
         xMCsub[j].sub(NP, &ccsub[j * NP], &ccsub[j * NP]);
-        /* Apply the flattened the xMCsub into the original RHS function */
+        /* Apply the flattened xMCsub into the original RHS function */
         dxccsub[j] = Original_RHS(xMCsub, pMCsub, j);
 
 
