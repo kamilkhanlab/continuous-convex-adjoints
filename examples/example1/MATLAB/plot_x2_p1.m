@@ -8,7 +8,7 @@
  % Example 3 for CACE paper
  % 
 %% -----------------------------------------------------------------
-% Import data generated obtained in C++
+% Import data generated in C++
 cv = importdata('data_x2cv.txt');
 cc = importdata('data_x2cc.txt');
 x = importdata('data_x2.txt');
@@ -43,7 +43,7 @@ Slope_cc_1 = dxcc1/dP1;
 YIntercept_cc_1 = xcc1 - Slope_cc_1 * p_i1;
 XIntercept_cc_1 = -YIntercept_cc_1 / Slope_cc_1;
 
-%Compute the subtangent line at p1 = 5.0, p2 = 0.5 using finite difference approximation
+% Compute the subtangent line at p1 = 5.0, p2 = 0.5 using finite difference approximation
 dP = gradient(p);
 dxcv = gradient(cv);
 xcv2 = interp1(p, cv, p_i2);
