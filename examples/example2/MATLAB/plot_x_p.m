@@ -8,7 +8,7 @@
  % Example 4 for CACE paper
  %
 %% -----------------------------------------------------------------
-% Import data generated obtained in C++
+% Import data generated in C++
 cv = importdata('data_xcv.txt');
 cc = importdata('data_xcc.txt');
 x = importdata('data_x.txt');
