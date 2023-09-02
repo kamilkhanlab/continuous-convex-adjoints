@@ -3,7 +3,7 @@
  % 2022/08/10
  %
  % This script plots the subtangent lines obtained from C++ implementation of adjoint subgradients
- % evalaution system.
+ % evaluation system.
  %
  % Example 3 for CACE paper
  % 
