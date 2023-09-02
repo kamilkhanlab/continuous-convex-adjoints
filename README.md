@@ -90,7 +90,7 @@ This C++ implementation calculates subgradients for an objective function in a l
 </p>
 
 ### [Example3](examples/example3)
-This implementation describes both the forward subgradient evaluation system (Song and Khan, 2023) and the adjoint subgradient system for the same lower-bounding problem, allowing for comparison in terms of CPU time (the results for ten runs can be found in [CPUtime.xlsx](results/CPUtime.xlsx)). In constructing the adjoint subgradient system, we separately apply both forward-mode subgradient AD (Mitsos et al., 2009) and reverse-mode subgradient AD (Beckers et al., 2012). Similarly, we also estimated the subgradients via finite approximation in [MATLAB](examples/example3/MATLAB), and the resulting plot is:
+This implementation describes both the forward subgradient evaluation system (Song and Khan, 2023) and the adjoint subgradient system for the same lower-bounding problem, allowing for comparison in terms of CPU time (the results for ten runs can be found in [CPUtime.xlsx](results/CPUtime.xlsx)). In constructing the adjoint subgradient system, we separately apply both forward-mode subgradient AD (Mitsos et al., 2009) and reverse-mode subgradient AD (Beckers et al., 2012). Similarly, we also estimated the subgradients via finite difference approximation in [MATLAB](examples/example3/MATLAB), and the resulting plot is:
 <p align="center">
     <img src="results/plot_x2_p7_2_0.png" alt="Image" width="400" />
 </p>
