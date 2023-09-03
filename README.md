@@ -38,16 +38,16 @@ relaxation (Scott and Barton, 2013) $g^{\mathrm{cv}}$ of $g$ with state relaxati
 This repository contains a proof-of-concept implementation of a new adjoint subgradient evaluation approach (Song and Khan, 2023), where the subgradients of $J^{\mathrm{cv}}$ can be evaluated without
 constructing full generalized derivatives of Scott and Barton's relaxations. This repository contains our C++ and Julia code for all numerical examples in our accompanying manuscript:
 
-> Zhang, Y., Khan, K.A., 2023. Evaluating subgradients for convex relaxations of dynamic process models by adapting current tools, *Computers and Chemical Engineering*. Under revision.
+> Zhang, Y., Khan, K.A., 2023. Evaluating subgradients for convex relaxations of dynamic process models by adapting current tools, under revision.
 
 This implementation was developed by Yulan Zhang in C++ and Julia. This repository is tied to the accompanying article, and will not be updated except for bug fixes. If you make use of this code, please cite our article as above.
  
 This work was supported by the Natural Sciences and Engineering Research Council of Canada (NSERC) under Grant RGPIN-2017-05944.
 
 ## Dependencies
-[CVODES](https://computing.llnl.gov/projects/sundials/cvodes) v5.8.0
 
-[MC++](https://github.com/coin-or/MCpp) v1.0
+- [CVODES](https://computing.llnl.gov/projects/sundials/cvodes) v5.8.0
+- [MC++](https://github.com/coin-or/MCpp) v1.0
 
 ## Method outline
 Song and Khan (2023) describe a new subgradient evaluation framework for the two established state relaxations ([Scott and Barton, 2013](https://link.springer.com/article/10.1007/s10898-012-9909-0); [Song and Khan, 2022](https://link.springer.com/article/10.1007/s10107-021-01654-x)). This subgradient evaluation framework computes state relaxation subgradients as solving an auxiliary ODE system that resembles classical ``forward'' sensitivity analysis results for smooth ODEs. For Scott and Barton's relaxations, the subgradient ODE system may be reformulated as an adjoint sensitivity system of the form:
