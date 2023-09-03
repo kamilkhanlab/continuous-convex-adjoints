@@ -77,25 +77,25 @@ For the reverse-mode subgradient AD (Beckers et al., 2012), the [`/src/`](/src/)
 The [`/examples/`](/examples/) folder contains our code for four numerical examples in the accompanying manuscript. The `/MATLAB/` subfolder in each example folder contains the data generated in C++ and the code for plotting, as well as our code for approximating subgradients using finite differences. Note that this implementation itself can construct Scott and Barton's relaxations and adjoint subgradient evaluation systems automatically for any nonlinear dynamic optimization problem with an embedded system of parametric ODEs. 
 
 
-### [Example1](examples/example1)
-This C++ implementation calculates subgradients for an objective function in a lower-bounding problem when the adjoint system is constructed using forward-mode subgradient AD. For comparision, the subgradients are approximated at the same parameter values using finite difference approximation in [MATLAB](examples/example1/MATLAB). This example is adapted from [Scott and Barton (2013)], producing the plot:
+### [Example 3](examples/example3)
+This C++ implementation calculates subgradients for an objective function in a lower-bounding problem when the adjoint system is constructed using forward-mode subgradient AD. For comparision, the subgradients are approximated at the same parameter values using finite difference approximation in [MATLAB](examples/example3/MATLAB). This example is adapted from [Scott and Barton (2013)], producing the plot:
 <p align="center">
     <img src="results/plot_x2_p1_2_0.png" alt="Image" width="400" />
 </p>
 
-### [Example2](examples/example2)
-This C++ implementation calculates subgradients for an objective function in a lower-bounding problem. The computation is performed when the adjoint system is constructed using reverse-mode subgradient AD and corresponding finite difference approximation in [MATLAB](examples/example2/MATLAB) , producing the plot:
+### [Example 4](examples/example4)
+This C++ implementation calculates subgradients for an objective function in a lower-bounding problem. The computation is performed when the adjoint system is constructed using reverse-mode subgradient AD and corresponding finite difference approximation in [MATLAB](examples/example4/MATLAB) , producing the plot:
 <p align="center">
     <img src="results/plot_x_p_0_15.png" alt="Image" width="400" />
 </p>
 
-### [Example3](examples/example3)
-This implementation describes both the forward subgradient evaluation system (Song and Khan, 2023) and the adjoint subgradient system for the same lower-bounding problem, allowing for comparison in terms of CPU time (the results for ten runs can be found in [CPUtime.xlsx](results/CPUtime.xlsx)). In constructing the adjoint subgradient system, we separately apply both forward-mode subgradient AD (Mitsos et al., 2009) and reverse-mode subgradient AD (Beckers et al., 2012). Similarly, we also estimated the subgradients via finite difference approximation in [MATLAB](examples/example3/MATLAB), and the resulting plot is:
+### [Example 5](examples/example5)
+This implementation describes both the forward subgradient evaluation system (Song and Khan, 2023) and the adjoint subgradient system for the same lower-bounding problem, allowing for comparison in terms of CPU time (the results for ten runs can be found in [CPUtime.xlsx](results/CPUtime.xlsx)). In constructing the adjoint subgradient system, we separately apply both forward-mode subgradient AD (Mitsos et al., 2009) and reverse-mode subgradient AD (Beckers et al., 2012). Similarly, we also estimated the subgradients via finite difference approximation in [MATLAB](examples/example5/MATLAB), and the resulting plot is:
 <p align="center">
     <img src="results/plot_x2_p7_2_0.png" alt="Image" width="400" />
 </p>
 
-### [Example4](examples/example4)
+### [Example 6](examples/example6)
 To compare how the CPU time for evaluating the subgradient of the objective function scales with the number of parameters, this implementation calculates subgradients using both the adjoint subgradient evaluation system and the forward subgradient evaluation system (Song and Khan, 2023). The results for ten runs can be found in [CPUtime.xlsx](results/CPUtime.xlsx).
 
 ## References
