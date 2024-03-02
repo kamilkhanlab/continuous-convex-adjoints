@@ -36,9 +36,9 @@ where $J^{\mathrm{cv}}$ is a convex relaxation of $J$, constructed by composing 
 relaxation (Scott and Barton, 2013) $g^{\mathrm{cv}}$ of $g$ with state relaxations $(\mathbf{x}^{\mathrm{cv}},\mathbf{x}^{\mathrm{cc}})$.
 
 This repository contains a proof-of-concept implementation of a new adjoint subgradient evaluation approach (Song and Khan, 2023), where the subgradients of $J^{\mathrm{cv}}$ can be evaluated without
-constructing full generalized derivatives of Scott and Barton's relaxations. This repository contains our C++ and Julia code for all numerical examples in our accompanying manuscript:
+constructing full generalized derivatives of Scott and Barton's relaxations. This repository contains our C++ and Julia code for all numerical examples in our [accompanying article][1]:
 
-> Zhang, Y., Khan, K.A., 2023. Evaluating subgradients for convex relaxations of dynamic process models by adapting current tools, under revision.
+> Y. Zhang and K.A. Khan, Evaluating subgradients for convex relaxations of dynamic process models by adapting current tools, *Computers & Chemical Engineering*, **180**:108462 (2024). doi:10.1016/j.compchemeng.2023.108462
 
 This implementation was developed by Yulan Zhang in C++ and Julia. This repository is tied to the accompanying article, and will not be updated except for bug fixes. If you make use of this code, please cite our article as above.
  
@@ -113,3 +113,5 @@ inequalities. Journal of Global Optimization 57, 143–176.
 ordinary differential equations. Mathematical Programming 196, 521–565.
 
 - Song, Y., Khan, K.A., 2023. Computing subgradients of convex relaxations for the solutions of parametric systems of ordinary differential equations. Under review.
+
+[1]: https://doi.org/10.1016/j.compchemeng.2023.108462
